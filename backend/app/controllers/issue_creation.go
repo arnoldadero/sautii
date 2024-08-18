@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sautii/backend/app/config"
-	"sautii/backend/app/models"
-	"sautii/backend/app/utils"
+	"sautii/config"
+	"sautii/models"
+	"sautii/utils"
 	"time"
 )
 
