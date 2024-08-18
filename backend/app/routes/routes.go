@@ -2,7 +2,7 @@ package routes
 
 import (
     "net/http"
-    "sautii-process/backend/controllers"
+    "sautii/backend/app/controllers"
 
     "github.com/gorilla/mux"
 )
