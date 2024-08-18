@@ -1,20 +1,25 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	"sautii/backend/app/routes"
+    "log"
+    "net/http"
+    "backend/app/config"
+    "backend/app/routes"
 
-	"github.com/gorilla/mux"
+    "github.com/gorilla/mux"
 )
 
 func main() {
-	router := mux.NewRouter()
+    // Initialize the database connection
+    config.InitDatabase()
 
-	// Register application routes
-	routes.RegisterRoutes(router)
+    // Create a new router
+    router := mux.NewRouter()
 
-	// Start the HTTP server
-	log.Println("Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", router))
+    // Register application routes
+    routes.RegisterRoutes(router)
+
+    // Start the HTTP server
+    log.Println("Server started on :8080")
+    log.Fatal(http.ListenAndServe(":8080", router))
 }
