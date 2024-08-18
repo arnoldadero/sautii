@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sautii/backend/app/config"
 	"sautii/backend/app/models"
@@ -30,9 +30,19 @@ func CreateIssue(w http.ResponseWriter, r *http.Request) {
 	issue.Description = utils.SanitizeInput(issue.Description)
 	issue.Title = utils.SanitizeInput(issue.Title)
 
-	// Add additional details
+	// Add timestamp
 	issue.CreatedAt = time.Now()
-	issue.IsAnonymous = true // By default, issues are anonymous
+
+	// Get the user's IP address from the request (for demonstration purposes)
+	userIP := r.RemoteAddr
+
+	// Get the location based on the IP address
+	location, err := utils.GetLocationByIP(userIP)
+	if err == nil {
+		issue.Location = fmt.Sprintf("%s, %s, %s", location.City, location.Region, location.Country)
+	} else {
+		issue.Location = "Unknown Location"
+	}
 
 	// Insert the issue into the database
 	query := `INSERT INTO issues (title, description, category, media_url, created_at, location, is_anonymous)
@@ -40,11 +50,7 @@ func CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	err = config.Database.QueryRow(query, issue.Title, issue.Description, issue.Category, issue.MediaURL, issue.CreatedAt, issue.Location, issue.IsAnonymous).Scan(&issue.ID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Failed to create issue", http.StatusInternalServerError)
-		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
