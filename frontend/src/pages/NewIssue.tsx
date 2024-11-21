@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useForm, Controller } from 'react-hook-form';
@@ -6,33 +6,34 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { AppDispatch } from '../store';
 import { createIssue } from '../store/slices/issueSlice';
-import { CreateIssueDto, IssueCategory, IssuePriority } from '../types/issue';
+import { CreateIssueDto, IssueCategory, IssuePriority, CategoryPrediction, Location } from '../types/issue';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { MapPinIcon, PhotoIcon } from '@heroicons/react/24/outline';
-import LocationSearch from '../components/issues/LocationSearch';
+import { LocationSearch } from '../components/issues/LocationSearch';
+import api from '../services/api';
 
 const schema = yup.object().shape({
   title: yup.string().required('Title is required').min(5, 'Title must be at least 5 characters'),
   description: yup.string().required('Description is required').min(20, 'Description must be at least 20 characters'),
-  category: yup.string().required('Category is required'),
-  priority: yup.string().required('Priority is required'),
+  category: yup.mixed<IssueCategory>().oneOf(Object.values(IssueCategory), 'Invalid category').required('Category is required'),
+  priority: yup.mixed<IssuePriority>().oneOf(Object.values(IssuePriority), 'Invalid priority').required('Priority is required'),
   location: yup.object().shape({
-    latitude: yup.number().required('Latitude is required'),
-    longitude: yup.number().required('Longitude is required'),
+    lat: yup.number().required('Latitude is required'),
+    lng: yup.number().required('Longitude is required'),
     address: yup.string().required('Address is required'),
-    county: yup.string().required('County is required'),
-    constituency: yup.string(),
-    ward: yup.string(),
-  }),
-  isAnonymous: yup.boolean(),
-  tags: yup.array().of(yup.string()),
+    radius: yup.number().optional(),
+  }).required(),
+  isAnonymous: yup.boolean().required(),
+  tags: yup.array().of(yup.string()).optional(),
+  attachments: yup.array().of(yup.mixed<File>()).optional(),
 });
 
 export const NewIssue: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [aiPrediction, setAiPrediction] = useState<CategoryPrediction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locationSearchOpen, setLocationSearchOpen] = useState(false);
 
@@ -48,27 +49,47 @@ export const NewIssue: React.FC = () => {
       isAnonymous: false,
       tags: [],
       location: {
-        latitude: 0,
-        longitude: 0,
+        lat: 0,
+        lng: 0,
         address: '',
-        county: '',
+        radius: 0,
       },
+      category: IssueCategory.OTHER,
+      priority: IssuePriority.LOW,
     },
   });
 
-  const categories: IssueCategory[] = [
-    'healthcare',
-    'education',
-    'security',
-    'infrastructure',
-    'environment',
-    'governance',
-    'economy',
-    'social',
-    'other',
-  ];
+  const categories = Object.values(IssueCategory);
+  const priorities = Object.values(IssuePriority);
 
-  const priorities: IssuePriority[] = ['low', 'medium', 'high', 'critical'];
+  const title = watch('title');
+  const description = watch('description');
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (title && description && title.length > 5 && description.length > 20) {
+        try {
+          // Use a separate API endpoint for predictions
+          const response = await api.post('/issues/predict', {
+            title,
+            description,
+          });
+          
+          if (response.data.prediction) {
+            setAiPrediction(response.data.prediction);
+            // Auto-set the category if confidence is high
+            if (response.data.prediction.confidence > 0.8) {
+              setValue('category', response.data.prediction.category);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to get AI prediction:', error);
+        }
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [title, description, setValue]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -99,8 +120,13 @@ export const NewIssue: React.FC = () => {
     setValue('tags', currentTags.filter((tag) => tag !== tagToRemove));
   };
 
-  const handleLocationSelect = (location: any) => {
-    setValue('location', location);
+  const handleLocationSelect = (location: Location) => {
+    setValue('location', {
+      lat: location.lat,
+      lng: location.lng,
+      address: location.address || '',
+      radius: location.radius || 0,
+    });
     setLocationSearchOpen(false);
   };
 
@@ -177,12 +203,26 @@ export const NewIssue: React.FC = () => {
                     <option value="">Select a category</option>
                     {categories.map((category) => (
                       <option key={category} value={category}>
-                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                        {category.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
                       </option>
                     ))}
                   </select>
                   {errors.category && (
                     <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
+                  )}
+                  {aiPrediction && (
+                    <div className="mt-2 text-sm">
+                      <p className="text-gray-600">
+                        AI Suggestion:{' '}
+                        <span className="font-medium">
+                          {aiPrediction.category.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                        {' '}
+                        <span className="text-gray-500">
+                          ({Math.round(aiPrediction.confidence * 100)}% confidence)
+                        </span>
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -205,7 +245,7 @@ export const NewIssue: React.FC = () => {
                     <option value="">Select priority</option>
                     {priorities.map((priority) => (
                       <option key={priority} value={priority}>
-                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                        {priority.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
                       </option>
                     ))}
                   </select>
@@ -234,26 +274,26 @@ export const NewIssue: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Controller
-              name="location.county"
+              name="location.address"
               control={control}
               render={({ field }) => (
                 <Input
                   {...field}
-                  label="County"
-                  placeholder="Enter county"
-                  error={errors.location?.county?.message}
+                  label="Address"
+                  placeholder="Enter address"
+                  error={errors.location?.address?.message}
                 />
               )}
             />
             <Controller
-              name="location.constituency"
+              name="location.radius"
               control={control}
               render={({ field }) => (
                 <Input
                   {...field}
-                  label="Constituency"
-                  placeholder="Enter constituency"
-                  error={errors.location?.constituency?.message}
+                  label="Radius"
+                  placeholder="Enter radius"
+                  error={errors.location?.radius?.message}
                 />
               )}
             />
@@ -371,12 +411,25 @@ export const NewIssue: React.FC = () => {
           </Button>
         </div>
       </form>
-      <LocationSearch
-        isOpen={locationSearchOpen}
-        onClose={() => setLocationSearchOpen(false)}
-        onSelect={handleLocationSelect}
-        initialLocation={watch('location')}
-      />
+      {locationSearchOpen && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+            <LocationSearch
+              onLocationSelect={handleLocationSelect}
+              initialLocation={watch('location')}
+            />
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setLocationSearchOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,43 +1,51 @@
-export type IssueCategory =
-  | 'healthcare'
-  | 'education'
-  | 'security'
-  | 'infrastructure'
-  | 'environment'
-  | 'governance'
-  | 'economy'
-  | 'social'
-  | 'other';
+export enum IssueStatus {
+  PENDING = 'pending',
+  ACTIVE = 'active',
+  RESOLVED = 'resolved',
+  REJECTED = 'rejected'
+}
 
-export type IssueStatus = 'pending' | 'active' | 'resolved' | 'rejected';
+export enum IssuePriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical'
+}
 
-export type IssuePriority = 'low' | 'medium' | 'high' | 'critical';
+export enum IssueCategory {
+  HEALTHCARE = 'healthcare',
+  EDUCATION = 'education',
+  SECURITY = 'security',
+  INFRASTRUCTURE = 'infrastructure',
+  ENVIRONMENT = 'environment',
+  GOVERNANCE = 'governance',
+  ECONOMY = 'economy',
+  SOCIAL = 'social',
+  OTHER = 'other'
+}
 
 export interface Location {
-  latitude: number;
-  longitude: number;
-  address?: string;
-  county?: string;
-  constituency?: string;
-  ward?: string;
+  lat: number;
+  lng: number;
+  address: string;
+  radius?: number;
 }
 
-export interface IssueComment {
-  id: string;
-  content: string;
-  authorId?: string;
-  authorName: string;
-  createdAt: string;
-  updatedAt: string;
-  isAnonymous: boolean;
-}
-
-export interface IssueVote {
+export interface Vote {
   id: string;
   userId: string;
   voteType: 'up' | 'down';
   createdAt: string;
-  tokenId?: string; // Blockchain token ID
+}
+
+export interface Comment {
+  id: string;
+  content: string;
+  userId: string;
+  username: string;
+  isAnonymous: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Issue {
@@ -45,23 +53,35 @@ export interface Issue {
   title: string;
   description: string;
   category: IssueCategory;
-  status: IssueStatus;
   priority: IssuePriority;
+  status: IssueStatus;
   location: Location;
+  userId: string;
+  username: string;
   isAnonymous: boolean;
-  authorId?: string;
-  authorName?: string;
+  attachments?: string[];
+  tags?: string[];
+  votes: Vote[];
+  voteCount: number;
+  comments: Comment[];
+  commentsCount: number;
   createdAt: string;
   updatedAt: string;
-  dueDate?: string;
-  assignedTo?: string[];
-  tags: string[];
-  attachments?: string[];
-  votes: IssueVote[];
-  comments: IssueComment[];
-  viewCount: number;
-  voteCount: number;
-  commentCount: number;
+  aiPrediction?: {
+    category: IssueCategory;
+    confidence: number;
+  };
+}
+
+export interface SearchResponse {
+  issues: Issue[];
+  total: number;
+  facets: {
+    categories: { [key in IssueCategory]: number };
+    priorities: { [key in IssuePriority]: number };
+    statuses: { [key in IssueStatus]: number };
+    tags: { [key: string]: number };
+  };
 }
 
 export interface CreateIssueDto {
@@ -71,7 +91,7 @@ export interface CreateIssueDto {
   priority: IssuePriority;
   location: Location;
   isAnonymous: boolean;
-  tags: string[];
+  tags?: string[];
   attachments?: File[];
 }
 

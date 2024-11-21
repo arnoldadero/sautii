@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
-export const api = axios.create({
-  baseURL,
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,10 +26,12 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
+      // Handle token refresh or logout
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
+
+export default api;

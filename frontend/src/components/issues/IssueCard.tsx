@@ -1,150 +1,116 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Issue } from '../../types/issue';
+import { Issue, IssueStatus } from '../../types/issue';
 import { formatDistanceToNow } from 'date-fns';
 import { useDispatch } from 'react-redux';
 import { voteOnIssue } from '../../store/slices/issueSlice';
 import { AppDispatch } from '../../store';
 import { ChevronUpIcon, ChevronDownIcon, ChatBubbleLeftIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { MapPinIcon } from '@heroicons/react/24/solid';
+import clsx from 'clsx';
 
 interface IssueCardProps {
   issue: Issue;
   showVoting?: boolean;
 }
 
-const IssueCard: React.FC<IssueCardProps> = ({ issue, showVoting = true }) => {
+export const IssueCard: React.FC<IssueCardProps> = ({ issue, showVoting = true }) => {
   const dispatch = useDispatch<AppDispatch>();
 
-  const handleVote = async (voteType: 'up' | 'down') => {
+  const handleVote = async (voteType: 'up' | 'down', e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation when clicking vote buttons
     try {
-      await dispatch(voteOnIssue({ id: issue.id, voteType })).unwrap();
+      await dispatch(voteOnIssue({ issueId: issue.id, voteType }));
     } catch (error) {
       console.error('Failed to vote:', error);
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'critical':
-        return 'bg-red-100 text-red-800';
-      case 'high':
-        return 'bg-orange-100 text-orange-800';
-      case 'medium':
+  const getStatusColor = (status: IssueStatus) => {
+    switch (status) {
+      case IssueStatus.PENDING:
         return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
+      case IssueStatus.ACTIVE:
         return 'bg-blue-100 text-blue-800';
-      case 'resolved':
+      case IssueStatus.RESOLVED:
         return 'bg-green-100 text-green-800';
-      case 'rejected':
+      case IssueStatus.REJECTED:
         return 'bg-red-100 text-red-800';
-      case 'pending':
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-      <div className="p-4">
-        <div className="flex items-start gap-4">
-          {showVoting && (
-            <div className="flex flex-col items-center space-y-1">
-              <button
-                onClick={() => handleVote('up')}
-                className="p-1 rounded hover:bg-gray-100 transition-colors"
-              >
-                <ChevronUpIcon className="h-6 w-6 text-gray-500 hover:text-green-500" />
-              </button>
-              <span className="font-medium text-gray-700">{issue.voteCount}</span>
-              <button
-                onClick={() => handleVote('down')}
-                className="p-1 rounded hover:bg-gray-100 transition-colors"
-              >
-                <ChevronDownIcon className="h-6 w-6 text-gray-500 hover:text-red-500" />
-              </button>
-            </div>
-          )}
-          
-          <div className="flex-1">
-            <Link to={`/issues/${issue.id}`}>
-              <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600">
-                {issue.title}
-              </h3>
-            </Link>
-            
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(issue.priority)}`}>
-                {issue.priority}
-              </span>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(issue.status)}`}>
+    <Link to={`/issues/${issue.id}`} className="block">
+      <div className="bg-white shadow rounded-lg hover:shadow-md transition-shadow duration-200">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <span className={clsx('px-2 py-1 text-xs font-medium rounded-full', getStatusColor(issue.status))}>
                 {issue.status}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                {issue.category}
-              </span>
+              {issue.priority === 'critical' && (
+                <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                  Critical
+                </span>
+              )}
             </div>
+            <div className="text-sm text-gray-500">
+              {formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true })}
+            </div>
+          </div>
 
-            <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-              {issue.description}
-            </p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{issue.title}</h3>
+          
+          <p className="text-gray-600 mb-4 line-clamp-2">{issue.description}</p>
 
-            <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
-              {issue.location.address && (
-                <div className="flex items-center gap-1">
-                  <MapPinIcon className="h-4 w-4" />
-                  <span className="truncate max-w-[200px]">{issue.location.address}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              {showVoting && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={(e) => handleVote('up', e)}
+                    className="p-1 rounded hover:bg-gray-100"
+                  >
+                    <ChevronUpIcon className="h-5 w-5 text-gray-500" />
+                  </button>
+                  <span className="text-sm font-medium text-gray-700">
+                    {issue.voteCount}
+                  </span>
+                  <button
+                    onClick={(e) => handleVote('down', e)}
+                    className="p-1 rounded hover:bg-gray-100"
+                  >
+                    <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+                  </button>
                 </div>
               )}
               
-              <div className="flex items-center gap-1">
-                <ChatBubbleLeftIcon className="h-4 w-4" />
-                <span>{issue.commentCount}</span>
+              <div className="flex items-center space-x-1 text-gray-500">
+                <ChatBubbleLeftIcon className="h-5 w-5" />
+                <span className="text-sm">{issue.commentCount}</span>
               </div>
-              
-              <div className="flex items-center gap-1">
-                <EyeIcon className="h-4 w-4" />
-                <span>{issue.viewCount}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-          <div className="flex items-center gap-2">
-            <span>Posted by {issue.isAnonymous ? 'Anonymous' : issue.authorName}</span>
-            <span>•</span>
-            <span>{formatDistanceToNow(new Date(issue.createdAt))} ago</span>
-          </div>
-          
-          {issue.tags.length > 0 && (
-            <div className="flex gap-2">
-              {issue.tags.slice(0, 3).map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600"
-                >
-                  {tag}
-                </span>
-              ))}
-              {issue.tags.length > 3 && (
-                <span className="text-xs text-gray-500">+{issue.tags.length - 3} more</span>
+              {issue.location && (
+                <div className="flex items-center space-x-1 text-gray-500">
+                  <MapPinIcon className="h-5 w-5" />
+                  <span className="text-sm truncate max-w-[200px]">
+                    {issue.location.address || 'Location set'}
+                  </span>
+                </div>
               )}
             </div>
-          )}
+
+            <div className="flex items-center space-x-2">
+              <EyeIcon className="h-5 w-5 text-gray-400" />
+              <span className="text-sm text-gray-500">
+                {!issue.isAnonymous && issue.username}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
-
-export default IssueCard;

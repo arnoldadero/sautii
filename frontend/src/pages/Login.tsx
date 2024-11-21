@@ -1,27 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate } from 'react-router-dom';
-import { LoginCredentials } from '../types/auth';
-import { useAppDispatch, useAppSelector } from '../store';
-import { login } from '../store/slices/authSlice';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { useAuth } from '../contexts/AuthContext';
+
+interface LoginFormData {
+  email: string;
+  password: string;
+}
 
 export const Login: React.FC = () => {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useAppSelector((state) => state.auth);
+  const location = useLocation();
+  const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginCredentials>();
+  } = useForm<LoginFormData>();
 
-  const onSubmit = async (data: LoginCredentials) => {
-    const result = await dispatch(login(data));
-    if (login.fulfilled.match(result)) {
-      navigate('/');
+  const onSubmit = async (data: LoginFormData) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to login');
+      }
+
+      await login(responseData.token, responseData.refreshToken);
+      
+      const from = location.state?.from?.pathname || '/';
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during login');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,37 +108,12 @@ export const Login: React.FC = () => {
               <Button
                 type="submit"
                 fullWidth
-                isLoading={loading}
+                isLoading={isLoading}
               >
                 Sign in
               </Button>
             </div>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                fullWidth
-                onClick={() => {/* TODO: Implement Google OAuth */}}
-              >
-                <span className="sr-only">Sign in with Google</span>
-                Continue with Google
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

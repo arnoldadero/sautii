@@ -7,21 +7,57 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Issues } from './pages/Issues';
 import { NewIssue } from './pages/NewIssue';
+import { IssueDetail } from './pages/IssueDetail';
+import { GovernmentPortal } from './pages/GovernmentPortal';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
   return (
     <Provider store={store}>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/issues" element={<Issues />} />
-            <Route path="/issues/new" element={<NewIssue />} />
-          </Routes>
-        </Layout>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route 
+                path="/issues" 
+                element={
+                  <ProtectedRoute>
+                    <Issues />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/issues/new" 
+                element={
+                  <ProtectedRoute>
+                    <NewIssue />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/issues/:id" 
+                element={
+                  <ProtectedRoute>
+                    <IssueDetail />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/government" 
+                element={
+                  <ProtectedRoute>
+                    <GovernmentPortal />
+                  </ProtectedRoute>
+                } 
+              />
+            </Routes>
+          </Layout>
+        </Router>
+      </AuthProvider>
     </Provider>
   );
 }

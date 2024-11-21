@@ -3,16 +3,17 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { AppDispatch, RootState } from '../store';
 import { fetchIssues, setFilters, setPage } from '../store/slices/issueSlice';
-import IssueCard from '../components/issues/IssueCard';
+import { IssueCard } from '../components/issues/IssueCard';
 import { IssueCategory, IssuePriority, IssueStatus } from '../types/issue';
-import { FunnelIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { FunnelIcon, MagnifyingGlassIcon, PlusIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { AdvancedSearch } from '../components/issues/AdvancedSearch';
 
 export const Issues: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { issues, loading, pagination, filters } = useSelector((state: RootState) => state.issues);
-  const [showFilters, setShowFilters] = useState(false);
+  const { issues, loading, pagination, filters, facets } = useSelector((state: RootState) => state.issues);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -21,31 +22,8 @@ export const Issues: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(setFilters({ ...filters, search: searchQuery }));
+    dispatch(setFilters({ ...filters, query: searchQuery }));
   };
-
-  const handleFilterChange = (key: string, value: string) => {
-    dispatch(setFilters({ ...filters, [key]: value }));
-  };
-
-  const handlePageChange = (newPage: number) => {
-    dispatch(setPage(newPage));
-  };
-
-  const categories: IssueCategory[] = [
-    'healthcare',
-    'education',
-    'security',
-    'infrastructure',
-    'environment',
-    'governance',
-    'economy',
-    'social',
-    'other',
-  ];
-
-  const priorities: IssuePriority[] = ['low', 'medium', 'high', 'critical'];
-  const statuses: IssueStatus[] = ['pending', 'active', 'resolved', 'rejected'];
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -73,79 +51,24 @@ export const Issues: React.FC = () => {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={() => setShowAdvancedSearch(true)}
           >
-            <FunnelIcon className="h-5 w-5 mr-2" />
-            Filters
+            <AdjustmentsHorizontalIcon className="h-5 w-5 mr-2" />
+            Advanced Search
           </Button>
         </form>
 
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category
-              </label>
-              <select
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={filters.category || ''}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
-              >
-                <option value="">All Categories</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Priority
-              </label>
-              <select
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={filters.priority || ''}
-                onChange={(e) => handleFilterChange('priority', e.target.value)}
-              >
-                <option value="">All Priorities</option>
-                {priorities.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={filters.status || ''}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-              >
-                <option value="">All Statuses</option>
-                {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <Button
-                variant="text"
-                onClick={() => {
-                  dispatch(setFilters({}));
-                  setSearchQuery('');
-                }}
-              >
-                Clear Filters
-              </Button>
+        {/* Advanced Search Modal */}
+        {showAdvancedSearch && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <div className="fixed inset-0 bg-black opacity-30" onClick={() => setShowAdvancedSearch(false)} />
+              <div className="relative bg-white rounded-lg max-w-3xl w-full">
+                <AdvancedSearch
+                  facets={facets}
+                  onClose={() => setShowAdvancedSearch(false)}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -153,50 +76,40 @@ export const Issues: React.FC = () => {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500" />
         </div>
       ) : issues.length === 0 ? (
         <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No issues found</h3>
-          <p className="text-gray-500">
-            Try adjusting your filters or{' '}
-            <Link to="/issues/new" className="text-blue-500 hover:text-blue-600">
-              raise a new issue
-            </Link>
+          <h3 className="text-lg font-medium text-gray-900">No issues found</h3>
+          <p className="mt-2 text-sm text-gray-500">
+            Try adjusting your search or filters to find what you're looking for.
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-6">
           {issues.map((issue) => (
             <IssueCard key={issue.id} issue={issue} />
           ))}
         </div>
       )}
 
+      {/* Pagination */}
       {pagination.total > pagination.limit && (
         <div className="mt-6 flex justify-center">
-          <nav className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              disabled={pagination.page === 1}
-              onClick={() => handlePageChange(pagination.page - 1)}
-            >
-              Previous
-            </Button>
-            <span className="px-4 py-2 text-gray-700">
-              Page {pagination.page} of{' '}
-              {Math.ceil(pagination.total / pagination.limit)}
-            </span>
-            <Button
-              variant="secondary"
-              disabled={
-                pagination.page ===
-                Math.ceil(pagination.total / pagination.limit)
-              }
-              onClick={() => handlePageChange(pagination.page + 1)}
-            >
-              Next
-            </Button>
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+            {Array.from({ length: Math.ceil(pagination.total / pagination.limit) }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => dispatch(setPage(i + 1))}
+                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                  pagination.page === i + 1
+                    ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
+                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
           </nav>
         </div>
       )}
